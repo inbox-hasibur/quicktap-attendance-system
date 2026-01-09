@@ -1,5 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import LoginForm from '@/components/LoginForm';
+import Header from '@/components/Header';
+import StatsCards from '@/components/StatsCards';
+import AttendanceTable from '@/components/AttendanceTable';
+import Footer from '@/components/Footer';
 
 export default function Home() {
   // --- States ---
@@ -14,6 +19,9 @@ export default function Home() {
   // Theme State (Default: Dark)
   const [isDarkMode, setIsDarkMode] = useState(true);
 
+  // Real-time polling reference
+  const pollingIntervalRef = useRef(null);
+
   // --- Login Logic ---
   const handleLogin = (e) => {
     e.preventDefault();
@@ -21,9 +29,9 @@ export default function Home() {
     else setLoginError('Access Denied: Invalid Credentials');
   };
 
-  // --- Data Fetching ---
-  const fetchData = async () => {
-    setLoading(true);
+  // --- Data Fetching (without loading state) ---
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`/api/attendance?date=${selectedDate}`);
       const data = await res.json();
@@ -31,12 +39,27 @@ export default function Home() {
     } catch (err) {
       console.error("Error:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  // --- Real-time polling setup ---
   useEffect(() => {
-    if (isAuthenticated) fetchData();
+    if (isAuthenticated) {
+      // Initial data fetch
+      fetchData(false);
+
+      // Set up polling for real-time updates (every 5 seconds)
+      pollingIntervalRef.current = setInterval(() => {
+        fetchData(true); // silent fetch (no loading state)
+      }, 5000);
+
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
+    }
   }, [isAuthenticated, selectedDate]);
 
   // --- Report Download ---
@@ -59,36 +82,7 @@ export default function Home() {
 
   // --- LOGIN VIEW ---
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-white p-4 relative">
-        <div className="max-w-md w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 p-8 z-10">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-              QuickTap
-            </h1>
-            <p className="text-slate-500 text-sm mt-2 tracking-widest uppercase">Secure Admin Gateway</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-5">
-            <input 
-              type="password" 
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-white text-center tracking-widest placeholder-slate-600 transition"
-              placeholder="••••••••"
-              value={inputPassword}
-              onChange={(e) => setInputPassword(e.target.value)}
-            />
-            {loginError && <p className="text-red-400 text-xs text-center">{loginError}</p>}
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-900/20">
-              Unlock System
-            </button>
-          </form>
-        </div>
-        
-        {/* Footer for Login Page */}
-        <div className="absolute bottom-6 text-center opacity-40">
-          <p className="text-xs text-slate-500">© 2026 QuickTap IoT. Developed by Hasibur Rahman.</p>
-        </div>
-      </div>
-    );
+    return <LoginForm inputPassword={inputPassword} setInputPassword={setInputPassword} loginError={loginError} onSubmit={handleLogin} />;
   }
 
   // --- DASHBOARD VIEW ---
@@ -97,118 +91,28 @@ export default function Home() {
       <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col min-h-screen">
         
         {/* Header & Controls */}
-        <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 p-6 rounded-2xl border shadow-sm transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <div>
-            <h1 className={`text-3xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              QuickTap <span className="text-blue-500">Admin</span>
-            </h1>
-            <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Advanced Reporting System</p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-             {/* Theme Toggle Button */}
-             <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className={`p-2 rounded-lg border transition ${isDarkMode ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-gray-100 border-gray-300 text-gray-600'}`}
-                title="Toggle Theme"
-             >
-                {isDarkMode ? '☀' : '🌙'}
-             </button>
-
-             {/* Date Picker */}
-             <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-100 border-gray-300'}`}>
-                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Date:</span>
-                <input 
-                  type="date" 
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className={`bg-transparent outline-none text-sm font-mono cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
-                />
-             </div>
-
-             <button onClick={downloadReport} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2">
-                <span>⬇</span> Export
-             </button>
-            
-            <button onClick={() => setIsAuthenticated(false)} className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:text-red-400' : 'bg-white border-gray-300 text-gray-600 hover:text-red-600'}`}>
-              Logout
-            </button>
-          </div>
-        </div>
+        <Header
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          onDownload={downloadReport}
+          onLogout={() => setIsAuthenticated(false)}
+        />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-           {[
-             { title: "Total Records", value: records.length, color: isDarkMode ? "text-white" : "text-gray-900" },
-             { title: "Last Active", value: records.length > 0 ? new Date(records[0].timestamp).toLocaleTimeString() : '--:--', color: "text-blue-500" },
-             { title: "System Status", value: "Operational", color: "text-emerald-500", status: true }
-           ].map((card, i) => (
-             <div key={i} className={`p-5 rounded-xl border shadow-sm transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className={`text-xs uppercase font-bold tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>{card.title}</h3>
-                    <p className={`text-2xl font-bold mt-1 ${card.color}`}>{card.value}</p>
-                  </div>
-                  {card.status && <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>}
-                </div>
-             </div>
-           ))}
-        </div>
+        <StatsCards records={records} isDarkMode={isDarkMode} />
 
         {/* Table */}
-        <div className={`rounded-xl overflow-hidden border shadow-lg transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className={`text-xs uppercase tracking-wider border-b ${isDarkMode ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                  <th className="py-4 px-6 font-semibold">Time Log</th>
-                  <th className="py-4 px-6 font-semibold">Student Name</th>
-                  <th className="py-4 px-6 font-semibold">Roll ID</th>
-                  <th className="py-4 px-6 font-semibold">Status</th>
-                  <th className="py-4 px-6 font-semibold">Device</th>
-                </tr>
-              </thead>
-              <tbody className={`text-sm divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-gray-100'}`}>
-                {loading ? (
-                  <tr><td colSpan="5" className="text-center py-12 animate-pulse text-gray-500">Syncing...</td></tr>
-                ) : records.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-12 text-gray-500">No records for {selectedDate}.</td></tr>
-                ) : (
-                  records.map((rec, index) => {
-                    const isProxy = rec.status.includes("WARN");
-                    const isDenied = rec.status.includes("Denied");
-                    
-                    let statusStyle = isDarkMode ? "bg-emerald-900/30 text-emerald-400 border-emerald-900" : "bg-emerald-100 text-emerald-700 border-emerald-200";
-                    if (isProxy) statusStyle = isDarkMode ? "bg-amber-900/30 text-amber-400 border-amber-900" : "bg-amber-100 text-amber-700 border-amber-200";
-                    if (isDenied) statusStyle = isDarkMode ? "bg-red-900/30 text-red-400 border-red-900" : "bg-red-100 text-red-700 border-red-200";
-
-                    return (
-                      <tr key={index} className={`transition duration-150 ${isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-gray-50'}`}>
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <span className={`font-medium ${isDarkMode ? 'text-slate-200' : 'text-gray-900'}`}>{new Date(rec.timestamp).toLocaleTimeString()}</span>
-                        </td>
-                        <td className={`py-4 px-6 font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{rec.student_name}</td>
-                        <td className={`py-4 px-6 font-mono ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{rec.roll}</td>
-                        <td className="py-4 px-6">
-                          <span className={`py-1 px-3 rounded-full text-xs border ${statusStyle}`}>{rec.status}</span>
-                        </td>
-                        <td className={`py-4 px-6 text-xs font-mono ${isDarkMode ? 'text-slate-600' : 'text-gray-400'}`}>{rec.device_id}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AttendanceTable
+          records={records}
+          loading={loading}
+          selectedDate={selectedDate}
+          isDarkMode={isDarkMode}
+        />
 
         {/* Footer */}
-        <div className="mt-auto pt-8 text-center opacity-60">
-          <p className={`text-xs ${isDarkMode ? 'text-slate-600' : 'text-gray-400'}`}>
-            &copy; {new Date().getFullYear()} QuickTap IoT System. <br className="md:hidden"/>
-            Designed & Developed by <span className="font-semibold">Hasibur Rahman</span>.
-          </p>
-        </div>
+        <Footer isDarkMode={isDarkMode} />
 
       </div>
     </div>
