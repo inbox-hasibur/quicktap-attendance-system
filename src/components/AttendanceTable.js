@@ -17,12 +17,20 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
                   : 'bg-gray-100 text-gray-500 border-gray-200'
               }`}
             >
+              {/* 1. Student Profile */}
               <th className="py-4 px-6 font-semibold min-w-[200px]">Student Profile</th>
+              
+              {/* 2. Time Log */}
               <th className="py-4 px-6 font-semibold whitespace-nowrap">Time Log</th>
-              <th className="py-4 px-6 font-semibold whitespace-nowrap">RFID & Device</th>
+              
+              {/* 3. Status (Moved to Middle) */}
               <th className="py-4 px-6 font-semibold text-center">Status</th>
-              {/* Proxy Provider Header Left Aligned */}
-              <th className="py-4 px-6 font-semibold min-w-[180px]">Proxy Provider</th>
+
+              {/* 4. RFID & Device */}
+              <th className="py-4 px-6 font-semibold whitespace-nowrap">RFID & Device</th>
+              
+              {/* 5. Proxy Provider (Last) */}
+              <th className="py-4 px-6 font-semibold min-w-[150px]">Proxy Provider</th>
             </tr>
           </thead>
           <tbody
@@ -44,7 +52,7 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
               </tr>
             ) : (
               records.map((rec, index) => {
-                // Status Logic
+                // Logic Checks
                 const isProxy = rec.status.includes("WARN") || rec.proximity_status === "WARN";
                 const isDenied = rec.status.includes("Denied");
 
@@ -68,13 +76,24 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
                     ? "bg-red-900/30 text-red-400 border-red-900"
                     : "bg-red-100 text-red-700 border-red-200";
 
+                // Text Formatting Logic (Splitting into 2 lines)
+                let mainText = "Present";
+                let subText = "";
+
+                if (isProxy) {
+                  mainText = "Present";
+                  subText = "(Proxy!)";
+                } else if (isDenied) {
+                  mainText = "Denied";
+                  subText = "Unregistered";
+                }
+
                 return (
                   <tr key={index} className={`transition duration-150 ${rowClass}`}>
                     
                     {/* COLUMN 1: Student Profile */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        {/* Red Dot Indicator */}
                         {(isProxy || isDenied) ? (
                           <div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_8px_red] flex-shrink-0" title="Attention Required"></div>
                         ) : (
@@ -85,7 +104,6 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
                           <span className={`font-bold text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {rec.student_name}
                           </span>
-                          {/* Increased Font Size for ID */}
                           <span className={`text-sm font-mono mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-gray-600'}`}>
                             ID: {rec.roll}
                           </span>
@@ -99,44 +117,41 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
                         <span className={`font-medium ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                           {new Date(rec.timestamp).toLocaleTimeString()}
                         </span>
-                        {/* Increased Font Size for Date */}
-                        <span className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-[10px] text-slate-500">
                           {new Date(rec.timestamp).toLocaleDateString()}
                         </span>
                       </div>
                     </td>
 
-                    {/* COLUMN 3: RFID & Device */}
+                    {/* COLUMN 3: Status Badge (Centered & Split Text) */}
+                    <td className="py-4 px-6 text-center whitespace-nowrap">
+                      <div className={`py-1 px-3 rounded-md border inline-flex flex-col items-center justify-center w-24 ${statusStyle}`}>
+                        <span className="text-xs font-bold">{mainText}</span>
+                        {subText && <span className="text-[9px] uppercase tracking-wider opacity-80">{subText}</span>}
+                      </div>
+                    </td>
+
+                    {/* COLUMN 4: RFID & Device */}
                     <td className="py-4 px-6 whitespace-nowrap">
                       <div className="flex flex-col gap-1.5">
-                        {/* Increased Font Size for RFID */}
                         <span className={`font-mono text-xs px-2 py-0.5 rounded w-fit ${
                           isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-gray-200 text-gray-700'
                         }`}>
                           {rec.rfid_tag_id}
                         </span>
-                        {/* Increased Font Size for Device ID */}
-                        <span className={`text-xs uppercase font-bold tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-gray-500'}`}>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-gray-500'}`}>
                           {rec.device_id}
                         </span>
                       </div>
                     </td>
 
-                    {/* COLUMN 4: Status Badge */}
-                    <td className="py-4 px-6 text-center whitespace-nowrap">
-                      <span className={`py-1.5 px-3 rounded-md text-xs font-bold border ${statusStyle}`}>
-                        {rec.status}
-                      </span>
-                    </td>
-
-                    {/* COLUMN 5: Proxy Provider (Left Aligned & Bigger) */}
+                    {/* COLUMN 5: Proxy Provider */}
                     <td className="py-4 px-6 text-left">
                       {isProxy && rec.proxy_provider ? (
                         <div className="flex flex-col">
                           <span className="font-bold text-red-400 text-sm">
                             {rec.proxy_provider}
                           </span>
-                          {/* Increased Font Size for Proxy ID */}
                           <span className="text-xs text-red-400/70 font-mono mt-0.5">
                             ID: {rec.proxy_provider_roll || "N/A"}
                           </span>
