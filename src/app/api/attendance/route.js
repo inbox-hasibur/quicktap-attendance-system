@@ -3,14 +3,16 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { rfid_tag_id, proximity_status, device_id } = await req.json();
+    // 1. Receive data (proximity is expected as 0 or 1)
+    const { rfid_tag_id, proximity, device_id } = await req.json();
     const client = await clientPromise;
     const db = client.db("quicktap_db");
 
-    // 1. Identify current student scanning the card
+    // 2. Identify current student
     const student = await db.collection("students").findOne({ rfid_tag_id: rfid_tag_id });
 
-    let status = "Denied";
+    // Default values
+    let status = "Denied"; 
     let studentName = "Unknown";
     let roll = "N/A";
     let proxyProvider = null;
@@ -20,11 +22,11 @@ export async function POST(req) {
       studentName = student.name;
       roll = student.roll;
 
-      // 2. Logic for Proxy Detection
-      if (proximity_status === "WARN") {
-        status = "Present (PROXY WARN!)";
+      // 3. Logic: Check if proximity is 1 (Proxy Detected)
+      if (proximity === 1) {
+        status = "Proxy"; // Clean status for DB
 
-        // Fetch the last record for this specific device to find the potential source
+        // Fetch the last record to find who is standing there
         const lastRecordArray = await db.collection("attendance_records")
           .find({ device_id: device_id || "ESP_01" })
           .sort({ timestamp: -1 })
@@ -39,28 +41,28 @@ export async function POST(req) {
           // Calculate time difference in minutes
           const timeDiffMinutes = (currentTime - lastTime) / 1000 / 60;
 
-          // LOGIC: If the last scan was within 2 minutes, tag the provider.
-          // If it's been longer than 2 minutes, assume sensor glitch/stale state (Warn only).
+          // If last scan was within 2 minutes, tag the provider
           if (timeDiffMinutes <= 2) {
             proxyProvider = lastRecord.student_name;
-            proxyProviderRoll = lastRecord.roll; // Capture ID/Roll
+            proxyProviderRoll = lastRecord.roll; 
           }
         }
       } else {
+        // If proximity is 0 (Clear)
         status = "Present";
       }
     } else {
-      status = "Denied - Unregistered";
+      status = "Denied"; // Clean status for unregistered
     }
 
-    // 3. Save the attendance record
+    // 4. Save Record to Database
     const newRecord = {
       timestamp: new Date(),
       rfid_tag_id,
       student_name: studentName,
       roll: roll,
       status: status,
-      proximity_status: proximity_status, 
+      proximity_val: proximity, 
       proxy_provider: proxyProvider,
       proxy_provider_roll: proxyProviderRoll, 
       device_id: device_id || "ESP_01"
@@ -90,6 +92,7 @@ export async function GET(req) {
 
     let query = {};
   
+    // Date Filtering Logic
     if (dateParam) {
       const startDate = new Date(dateParam);
       startDate.setHours(0, 0, 0, 0);
@@ -105,6 +108,7 @@ export async function GET(req) {
       };
     }
 
+    // Fetch latest 100 records
     const records = await db
       .collection("attendance_records")
       .find(query)
