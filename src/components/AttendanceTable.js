@@ -52,8 +52,8 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
               </tr>
             ) : (
               records.map((rec, index) => {
-                // Logic Checks
-                const isProxy = rec.status.includes("WARN") || rec.proximity_status === "WARN";
+                // Check if status has "Proxy"/"Absent" OR proximity_val is 1
+                const isProxy = rec.status.includes("Proxy") || rec.status.includes("Absent") || rec.proximity_val === 1;
                 const isDenied = rec.status.includes("Denied");
 
                 // Row Background Logic
@@ -66,23 +66,19 @@ export default function AttendanceTable({ records, loading, selectedDate, isDark
                   ? "bg-emerald-900/30 text-emerald-400 border-emerald-900"
                   : "bg-emerald-100 text-emerald-700 border-emerald-200";
                 
-                if (isProxy)
-                  statusStyle = isDarkMode
-                    ? "bg-amber-900/30 text-amber-400 border-amber-900" 
-                    : "bg-amber-100 text-amber-700 border-amber-200";
-                
-                if (isDenied)
+                if (isProxy || isDenied) {
                   statusStyle = isDarkMode
                     ? "bg-red-900/30 text-red-400 border-red-900"
                     : "bg-red-100 text-red-700 border-red-200";
+                }
 
                 // Text Formatting Logic (Splitting into 2 lines)
-                let mainText = "Present";
+                 let mainText = "Present";
                 let subText = "";
 
                 if (isProxy) {
-                  mainText = "Present";
-                  subText = "(Proxy!)";
+                  mainText = "Absent";      // Main Status
+                  subText = "(Proxy!!)";    // Warning Text
                 } else if (isDenied) {
                   mainText = "Denied";
                   subText = "Unregistered";
