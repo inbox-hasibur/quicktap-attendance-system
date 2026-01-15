@@ -4,7 +4,7 @@
 ![Tech](https://img.shields.io/badge/Stack-Next.js%20%7C%20MongoDB%20%7C%20IoT-blue)
 ![Hardware](https://img.shields.io/badge/Hardware-ESP32%20%7C%20RFID%20%7C%20Ultrasonic-orange)
 
-**QuickTap** is an advanced IoT-based attendance monitoring system designed to prevent "proxy" attendance using Ultrasonic gap detection logic. It features a secure, real-time web dashboard for administration and reporting.
+**QuickTap** is an advanced IoT-based attendance monitoring system designed to prevent "proxy" attendance using Ultrasonic gap detection logic. It features a secure, real-time web dashboard for administration, reporting, and intelligent fraud detection.
 
 ### 🔗 Live Demo: [https://quicktapp.vercel.app](https://quicktapp.vercel.app)
 *(Admin Passcode: `admin`)*
@@ -17,11 +17,11 @@
 *   **RFID Authentication:** Instant identification using RC522 RFID module.
 *   **Anti-Proxy Logic:** Ultrasonic sensor (HC-SR04) detects distance gaps to ensure only one person enters per scan.
 *   **Real-time Sync:** ESP32 sends data instantly to the cloud via HTTPS.
-*   **Visual Feedback:** OLED Display & LEDs for success/error/warning status.
+*   **Visual Feedback:** LCD 16x2 Display & Buzzer/LEDs for success/error/warning status.
 
 ### 💻 Software & Dashboard
-*   **Live Monitoring:** Real-time updates without refreshing the page.
-*   **Secure Login:** Admin-only access protection.
+*   **Live Monitoring:** Real-time updates via SWR polling.
+*   **Intelligent Proxy Tracing:** Identifies *who* provided the proxy based on timestamp logic.
 *   **Advanced Reporting:** Filter attendance records by specific **Dates**.
 *   **Data Export:** Download daily attendance reports as **CSV** files.
 *   **UI/UX:** Responsive design with **Dark/Light Mode** toggle.
@@ -30,7 +30,7 @@
 
 ## 🛠️ Tech Stack
 
-*   **Hardware:** ESP32 / ESP8266 NodeMCU, RC522 RFID, HC-SR04, OLED Display.
+*   **Hardware:** ESP32 NodeMCU, RC522 RFID, HC-SR04, LCD 16x2 (I2C).
 *   **Firmware:** C++ (Arduino IDE).
 *   **Frontend:** Next.js (React), Tailwind CSS.
 *   **Backend:** Next.js API Routes (Serverless).
@@ -41,29 +41,30 @@
 
 ## ⚙️ System Architecture
 
-1.  **Input:** User taps RFID Card + Ultrasonic Sensor checks for human presence.
+1.  **Input:** User taps RFID Card + Ultrasonic Sensor checks for human presence gap.
 2.  **Processing:** ESP32 validates the sensor logic (Gap Detection).
 3.  **Transmission:** Data sent via HTTP POST to Vercel API.
-4.  **Storage:** MongoDB validates RFID Tag and logs the entry.
+4.  **Storage:** MongoDB logs the entry and checks for previous proxy providers.
 5.  **Visualization:** React Dashboard fetches and displays data in real-time.
 
 ---
 
-## 🔌 Hardware Pinout (ESP32)
+## 🔌 Hardware Pinout (ESP32 30-Pin)
 
-| Component | Pin Name | ESP32 GPIO |
-| :--- | :--- | :--- |
-| **RC522 RFID** | SDA (SS) | GPIO 5 |
-| | SCK | GPIO 18 |
-| | MOSI | GPIO 23 |
-| | MISO | GPIO 19 |
-| | RST | GPIO 4 |
-| **OLED (I2C)** | SDA | GPIO 21 |
-| | SCL | GPIO 22 |
-| **Ultrasonic** | Trig | GPIO 12 |
-| | Echo | GPIO 13 |
-| **Indicators** | Green LED | GPIO 2 |
-| | Red LED | GPIO 15 |
+| Component | Pin Name | ESP32 GPIO | Note |
+| :--- | :--- | :--- | :--- |
+| **RC522 RFID** | SDA (SS) | **D5** | SPI |
+| | SCK | **D18** | SPI |
+| | MOSI | **D23** | SPI |
+| | MISO | **D19** | SPI |
+| | RST | **D4** | Reset |
+| **LCD (I2C)** | SDA | **D21** | I2C Data |
+| | SCL | **D22** | I2C Clock |
+| **Ultrasonic** | Trig | **D25** | *Changed for Boot Safety* |
+| | Echo | **D26** | *Changed for Boot Safety* |
+| **Indicators** | Green LED | **D2** | Success |
+| | Red LED | **D15** | Error |
+| | Buzzer | **D27** | Active Buzzer |
 
 ---
 
@@ -100,12 +101,12 @@ To run the software side locally:
 
 ### 1. Log Attendance (Hardware -> Cloud)
 *   **Endpoint:** `POST /api/attendance`
-*   **Body:**
+*   **Body Structure:**
     ```json
     {
-      "rfid_tag_id": "CARD_UID_HERE",
-      "proximity_status": "OK",  // or "WARN"
-      "device_id": "ESP32_01"
+      "rfid_tag_id": "8C84FC5B",
+      "proximity": 0,       // 0 = Clear/Present, 1 = Proxy Detected
+      "device_id": "GATE_01"
     }
     ```
 
